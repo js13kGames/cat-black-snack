@@ -1,18 +1,65 @@
 body {
-  margin: 0;
-  overflow: hidden;
-  background: #111;
-  color: white;
-  font-family: Arial, sans-serif;
+    margin: 0;
+    overflow: hidden;
+    background: #111;
+    color: white;
+    font-family: Arial, sans-serif;
 }
 
 canvas {
-  display: block;
+    display: block;
+    background: #111;
 }
 
 #score {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  font-size: 20px;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 20px;
+}
+
+#controls {
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 16px;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 8px 15px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.button-container {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+}
+
+#controlSwitch,
+#autoSwitch {
+    background: #444;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+#controlSwitch:hover,
+#autoSwitch:hover {
+    background: #666;
+}
+
+#autoSwitch {
+    background: #353;
+}
+
+#autoSwitch:hover {
+    background: #575;
 }
