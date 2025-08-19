@@ -70,12 +70,19 @@ canvas.addEventListener("mousemove", (e) => {
 
 // Spawn a fish at random position
 function spawnFish() {
-    zzfx(...[1,.05,440,.05,.1,.2,1,0,0]);
     return {
         x: Math.random() * (canvas.width - 40) + 20,
         y: Math.random() * (canvas.height - 40) + 20,
         size: 10,
     };
+}
+
+function playFishSound() {
+    try {
+        zzfx(...[, , 537, 0.02, 0.02, 0.22, 1, 1.59, -6.98, 4.97]);
+    } catch (e) {
+        console.log("Sound error:", e);
+    }
 }
 
 // Initialize with one fish
@@ -225,6 +232,8 @@ function update() {
             score++;
             scoreDiv.textContent = "Score: " + score;
             trailLength += 2;
+            // Play sound when eating fish
+            playFishSound();
             // Spawn a new fish
             fish.push(spawnFish());
             return false;
