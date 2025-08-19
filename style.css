@@ -8,7 +8,7 @@ body {
 
 canvas {
     display: block;
-    background: #111;
+    background: linear-gradient(to bottom, #111, #111);
 }
 
 #score {
@@ -62,4 +62,19 @@ canvas {
 
 #autoSwitch:hover {
     background: #575;
+}
+
+#fullscreenToggle {
+    background: #345;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+#fullscreenToggle:hover {
+    background: #567;
 }

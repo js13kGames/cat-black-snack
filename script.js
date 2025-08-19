@@ -12,8 +12,10 @@ let cat = {
     y: canvas.height / 2,
     size: 20,
     speed: 3,
-    targetX: null, // Target position for mouse following
+    angle: 0, // Current direction angle (in radians)
+    targetX: null,
     targetY: null,
+    maxTurnRate: Math.PI / 18, // Max turning rate: 10 degrees per frame
 };
 let fish = [];
 let trail = [];
@@ -34,10 +36,6 @@ function toggleControlMode() {
 
     useMouseControl = !useMouseControl;
     controlSwitch.textContent = useMouseControl ? "Switch to Keyboard" : "Switch to Mouse";
-    // Update the controls text
-    document.getElementById("controls").textContent = useMouseControl
-        ? "Move the mouse to guide the cat"
-        : "Use Arrow keys or WASD to move";
 }
 
 function toggleAutoMode() {
@@ -47,12 +45,6 @@ function toggleAutoMode() {
     // Update UI when auto mode changes
     controlSwitch.disabled = autoMode; // Disable control switch during auto mode
     controlSwitch.style.opacity = autoMode ? "0.5" : "1";
-
-    document.getElementById("controls").textContent = autoMode
-        ? "Auto hunting mode: Cat will chase fish automatically"
-        : useMouseControl
-        ? "Move the mouse to guide the cat"
-        : "Use Arrow keys or WASD to move";
 }
 
 // Controls
@@ -89,45 +81,47 @@ function playFishSound() {
 fish.push(spawnFish());
 
 // Draw the cat
-function drawCat() {
-    // Trail
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
-    trail.forEach((t) => {
+function drawCatHead() {
+    // Draw the trail and body with rotation
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#333";
+
+    trail.forEach((t, i) => {
+        const alpha = 0.4 - (0.3 * i) / trail.length;
+        ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+
+        ctx.save();
+        ctx.translate(t.x, t.y);
+        ctx.rotate(t.angle);
+
+        // Draw oval-shaped body segment
         ctx.beginPath();
-        ctx.arc(t.x, t.y, cat.size * 0.7, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, cat.size * 0.6, cat.size * 0.4, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
     });
+
+    // Body with outline - rotated in movement direction
+    ctx.save();
+    ctx.translate(cat.x, cat.y);
+    ctx.rotate(cat.angle);
 
     // Body
     ctx.fillStyle = "black";
     ctx.beginPath();
-    ctx.arc(cat.x, cat.y, cat.size, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, cat.size, cat.size * 0.7, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.stroke();
 
-    // Ears
-    ctx.beginPath();
-    ctx.moveTo(cat.x - 12, cat.y - 5);
-    ctx.lineTo(cat.x - 22, cat.y - 20);
-    ctx.lineTo(cat.x - 2, cat.y - 15);
-    ctx.fill();
+    ctx.restore();
 
-    ctx.beginPath();
-    ctx.moveTo(cat.x + 12, cat.y - 5);
-    ctx.lineTo(cat.x + 22, cat.y - 20);
-    ctx.lineTo(cat.x + 2, cat.y - 15);
-    ctx.fill();
-
-    // Eyes
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    ctx.arc(cat.x - 6, cat.y - 5, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cat.x + 6, cat.y - 5, 3, 0, Math.PI * 2);
-    ctx.fill();
+    // Draw the head separately without rotation to keep it facing forward
+    drawCatHead(cat.x, cat.y);
 
     // If in auto mode, draw a target indicator
-    if (autoMode && cat.targetX !== null && cat.targetY !== null) {
+    if ((autoMode || useMouseControl) && cat.targetX !== null && cat.targetY !== null) {
         ctx.strokeStyle = "#ff0";
         ctx.setLineDash([5, 3]);
         ctx.beginPath();
@@ -141,6 +135,43 @@ function drawCat() {
         ctx.arc(cat.targetX, cat.targetY, 5, 0, Math.PI * 2);
         ctx.fill();
     }
+}
+
+function drawCat() {
+    // Đuôi
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    trail.forEach((t) => {
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, cat.size * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // Thân mèo
+    ctx.fillStyle = "black";
+    ctx.beginPath();
+    ctx.arc(cat.x, cat.y, cat.size, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tai
+    ctx.beginPath();
+    ctx.moveTo(cat.x - 12, cat.y - 5);
+    ctx.lineTo(cat.x - 22, cat.y - 20);
+    ctx.lineTo(cat.x - 2, cat.y - 15);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cat.x + 12, cat.y - 5);
+    ctx.lineTo(cat.x + 22, cat.y - 20);
+    ctx.lineTo(cat.x + 2, cat.y - 15);
+    ctx.fill();
+
+    // Mắt
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(cat.x - 6, cat.y - 5, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cat.x + 6, cat.y - 5, 3, 0, Math.PI * 2);
+    ctx.fill();
 }
 
 // Draw a fish
@@ -181,39 +212,58 @@ function findNearestFish() {
 
 // Update game state
 function update() {
+    // First determine desired movement direction based on control mode
+    let dx = 0,
+        dy = 0,
+        targetAngle = cat.angle;
+
     // Auto mode - find and chase the nearest fish
     if (autoMode) {
         const target = findNearestFish();
         if (target) {
             cat.targetX = target.x;
             cat.targetY = target.y;
+
+            dx = cat.targetX - cat.x;
+            dy = cat.targetY - cat.y;
         }
-    }
-
-    // Handle movement based on control mode
-    if (autoMode || useMouseControl) {
-        // Mouse or auto control - move cat towards target
+    } else if (useMouseControl) {
+        // Mouse control - move cat towards target
         if (cat.targetX !== null && cat.targetY !== null) {
-            const dx = cat.targetX - cat.x;
-            const dy = cat.targetY - cat.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            if (distance > cat.speed) {
-                // Move towards target
-                cat.x += (dx / distance) * cat.speed;
-                cat.y += (dy / distance) * cat.speed;
-            } else {
-                // Close enough, snap to target
-                cat.x = cat.targetX;
-                cat.y = cat.targetY;
-            }
+            dx = cat.targetX - cat.x;
+            dy = cat.targetY - cat.y;
         }
     } else {
         // Keyboard control
-        if (keys["ArrowUp"] || keys["w"]) cat.y -= cat.speed;
-        if (keys["ArrowDown"] || keys["s"]) cat.y += cat.speed;
-        if (keys["ArrowLeft"] || keys["a"]) cat.x -= cat.speed;
-        if (keys["ArrowRight"] || keys["d"]) cat.x += cat.speed;
+        if (keys["ArrowUp"] || keys["w"]) dy -= 1;
+        if (keys["ArrowDown"] || keys["s"]) dy += 1;
+        if (keys["ArrowLeft"] || keys["a"]) dx -= 1;
+        if (keys["ArrowRight"] || keys["d"]) dx += 1;
+    }
+
+    // If we have a movement direction, calculate target angle
+    if (dx !== 0 || dy !== 0) {
+        targetAngle = Math.atan2(dy, dx);
+
+        // Limit turning angle
+        let angleDiff = targetAngle - cat.angle;
+
+        // Normalize angle difference to [-PI, PI]
+        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+        while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+        // Apply turn rate limit
+        if (angleDiff > cat.maxTurnRate) {
+            cat.angle += cat.maxTurnRate;
+        } else if (angleDiff < -cat.maxTurnRate) {
+            cat.angle -= cat.maxTurnRate;
+        } else {
+            cat.angle = targetAngle;
+        }
+
+        // Move in the direction cat is facing
+        cat.x += Math.cos(cat.angle) * cat.speed;
+        cat.y += Math.sin(cat.angle) * cat.speed;
     }
 
     // Keep cat in bounds
@@ -221,7 +271,7 @@ function update() {
     cat.y = Math.max(cat.size, Math.min(canvas.height - cat.size, cat.y));
 
     // Save cat position for trail
-    trail.push({ x: cat.x, y: cat.y });
+    trail.push({ x: cat.x, y: cat.y, angle: cat.angle });
     while (trail.length > trailLength) trail.shift();
 
     // Check for collision with fish
@@ -256,8 +306,8 @@ function gameLoop() {
     update();
 
     // Draw everything
-    drawFish();
     drawCat();
+    drawFish();
 
     // Continue loop
     requestAnimationFrame(gameLoop);
@@ -272,6 +322,70 @@ window.addEventListener("resize", () => {
     cat.x = Math.max(cat.size, Math.min(canvas.width - cat.size, cat.x));
     cat.y = Math.max(cat.size, Math.min(canvas.height - cat.size, cat.y));
 });
+
+// Setup fullscreen toggle
+const fullscreenToggle = document.getElementById("fullscreenToggle");
+fullscreenToggle.addEventListener("click", toggleFullscreen);
+
+// Function to toggle fullscreen mode
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        // Enter fullscreen
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen();
+        } else if (document.documentElement.mozRequestFullScreen) {
+            // Firefox
+            document.documentElement.mozRequestFullScreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+            // Chrome, Safari, Opera
+            document.documentElement.webkitRequestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) {
+            // IE/Edge
+            document.documentElement.msRequestFullscreen();
+        }
+        fullscreenToggle.textContent = "╳";
+    } else {
+        // Exit fullscreen
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+            // Firefox
+            document.mozCancelFullScreen();
+        } else if (document.webkitExitFullscreen) {
+            // Chrome, Safari, Opera
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            // IE/Edge
+            document.msExitFullscreen();
+        }
+        fullscreenToggle.textContent = "⛶";
+    }
+
+    // After fullscreen change, update canvas dimensions
+    setTimeout(() => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }, 100);
+}
+
+// Listen for fullscreen change events to update the button text
+document.addEventListener("fullscreenchange", updateFullscreenButtonText);
+document.addEventListener("webkitfullscreenchange", updateFullscreenButtonText);
+document.addEventListener("mozfullscreenchange", updateFullscreenButtonText);
+document.addEventListener("MSFullscreenChange", updateFullscreenButtonText);
+
+function updateFullscreenButtonText() {
+    if (
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+    ) {
+        fullscreenToggle.textContent = "╳";
+    } else {
+        fullscreenToggle.textContent = "⛶";
+    }
+}
 
 // Start the game
 gameLoop();
